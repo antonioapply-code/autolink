@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, createContext, useContext } from "react";
 
 const save = async (key, val) => { try { await window.storage.set(key, JSON.stringify(val)); } catch(e) {} };
@@ -8,10 +7,16 @@ const fmtBRL = v => "R$ " + Number(v).toLocaleString("pt-BR");
 const fmtKm = v => Number(v).toLocaleString("pt-BR") + " km";
 const fmtDate = s => new Date(s).toLocaleDateString("pt-BR");
 
-// ─── API KEY ──────────────────────────────────────────────────────────────────
-const getApiKey = () => {
-  // Reads from Vite env var (set in Vercel as VITE_ANTHROPIC_KEY)
-  try { return import.meta.env?.VITE_ANTHROPIC_KEY || ""; } catch { return ""; }
+
+const callAI = async (system, messages) => {
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, system, messages }),
+  });
+  const data = await response.json();
+  if (data.error) throw new Error(data.error);
+  return data.content?.[0]?.text || "";
 };
 
 // ─── LANGUAGE CONTEXT ─────────────────────────────────────────────────────────
@@ -21,33 +26,33 @@ const TRANSLATIONS = {
   pt: {
     explore:"Explorar", matches:"Matches", guide:"Guia", map:"Mapa", profile:"Perfil",
     analyst:"Analista", filters:"Filtros", searchPlaceholder:"Buscar por modelo, marca, cor...",
-    swipeRight:"CURTIR ♥", swipeLeft:"PASSAR ✗", noMoreCars:"SEM MAIS CARROS",
+    swipeRight:t("swipeRight"), swipeLeft:t("swipeLeft"), noMoreCars:t("noMoreCars"),
     noMoreCarsDesc:"Você viu todos os carros disponíveis. Volte mais tarde!",
-    login:"Entrar", register:"Cadastrar", email:"E-mail", password:"Senha", name:"Nome",
-    phone:"Telefone", enterApp:"ENTRAR NO APP", demoAccounts:"Contas demo:",
-    myListings:"Meus Anúncios", myMatches:"Meus Matches", publish:"Publicar",
-    active:"Ativo", paused:"Pausado", pause:"Pausar", activate:"Ativar", remove:"Remover",
-    publishCar:"Publicar Carro", back:"← Voltar", save:"Salvar", cancel:"Cancelar",
-    logout:"Sair da Conta", editProfile:"Editar Perfil", memberSince:"Membro desde",
+    login:t("login"), register:t("register"), email:"E-mail", password:"Senha", name:"Nome",
+    phone:"Telefone", enterApp:t("enterApp"), demoAccounts:t("demoAccounts"),
+    myListings:t("myListings"), myMatches:t("myMatches"), publish:t("publish"),
+    active:t("active"), paused:t("paused"), pause:t("pause"), activate:t("activate"), remove:t("remove"),
+    publishCar:"Publicar Carro", back:t("back"), save:t("save"), cancel:t("cancel"),
+    logout:t("logout"), editProfile:t("editProfile"), memberSince:t("memberSince"),
     buyer:"Comprador", seller:"Vendedor", admin:"Administrador",
-    chooseAnalyst:"SEUS ANALISTAS", buyWithConfidence:"COMPRE COM SEGURANÇA",
+    chooseAnalyst:t("chooseAnalyst"), buyWithConfidence:t("buyWithConfidence"),
     buyWithConfidenceDesc:"Escolha um analista especializado para te acompanhar durante toda a compra.",
-    generalSupport:"Chat de Suporte Geral", generalSupportDesc:"Dúvidas rápidas? Fale com nossa equipe agora",
-    online:"● Online", available:"● Disponível", busy:"● Ocupado",
-    whatsapp:"📱 WhatsApp", chatInApp:"💬 Chat no App",
-    buyerGuide:"GUIA DO COMPRADOR", askAI:"🤖 Pergunte ao nosso especialista IA",
+    generalSupport:t("generalSupport"), generalSupportDesc:"Dúvidas rápidas? Fale com nossa equipe agora",
+    online:t("online"), available:t("available"), busy:t("busy"),
+    whatsapp:t("whatsapp"), chatInApp:t("chatInApp"),
+    buyerGuide:t("buyerGuide"), askAI:"🤖 Pergunte ao nosso especialista IA",
     askAIDesc:"Tire qualquer dúvida sobre compra de carros",
     askAIPlaceholder:"Ex: Como sei se o motor está bom?",
-    askAILoading:"Consultando especialista...", all:"Todos",
-    nearbyVehicles:"CARROS PRÓXIMOS", radius:"Raio:",
-    gettingLocation:"Obtendo sua localização...",
+    askAILoading:t("askAILoading"), all:"Todos",
+    nearbyVehicles:t("nearbyVehicles"), radius:t("radius"),
+    gettingLocation:t("gettingLocation"),
     carsNearby:"carros em até", kmFromYou:"km de você",
     noCarsRadius:"Nenhum carro nesse raio. Aumente o filtro de distância!",
-    talkToAnalyst:"Falar com Analista 🎯",
+    talkToAnalyst:t("talkToAnalyst"),
     noApiKey:"⚠️ API key não configurada. Configure VITE_ANTHROPIC_KEY no Vercel.",
     chatPlaceholder:"Pergunta para o analista...",
     typing:"digitando...",
-    termsTitle:"TERMOS DE USO", myProfile:"MEU PERFIL",
+    termsTitle:t("termsTitle"), myProfile:t("myProfile"),
   },
   en: {
     explore:"Explore", matches:"Matches", guide:"Guide", map:"Map", profile:"Profile",
@@ -64,8 +69,8 @@ const TRANSLATIONS = {
     chooseAnalyst:"YOUR ANALYSTS", buyWithConfidence:"BUY WITH CONFIDENCE",
     buyWithConfidenceDesc:"Choose a specialized analyst to guide you through the entire purchase.",
     generalSupport:"General Support Chat", generalSupportDesc:"Quick questions? Talk to our team now",
-    online:"● Online", available:"● Available", busy:"● Busy",
-    whatsapp:"📱 WhatsApp", chatInApp:"💬 Chat in App",
+    online:t("online"), available:"● Available", busy:"● Busy",
+    whatsapp:t("whatsapp"), chatInApp:"💬 Chat in App",
     buyerGuide:"BUYER'S GUIDE", askAI:"🤖 Ask our AI specialist",
     askAIDesc:"Ask anything about buying cars",
     askAIPlaceholder:"E.g.: How do I know if the engine is good?",
@@ -87,20 +92,20 @@ const TRANSLATIONS = {
     noMoreCarsDesc:"Ya viste todos los autos disponibles. ¡Vuelve más tarde!",
     login:"Iniciar sesión", register:"Registrarse", email:"Correo", password:"Contraseña", name:"Nombre",
     phone:"Teléfono", enterApp:"ENTRAR A LA APP", demoAccounts:"Cuentas demo:",
-    myListings:"Mis Anuncios", myMatches:"Mis Matches", publish:"Publicar",
-    active:"Activo", paused:"Pausado", pause:"Pausar", activate:"Activar", remove:"Eliminar",
-    publishCar:"Publicar Auto", back:"← Volver", save:"Guardar", cancel:"Cancelar",
-    logout:"Cerrar Sesión", editProfile:"Editar Perfil", memberSince:"Miembro desde",
+    myListings:"Mis Anuncios", myMatches:"Mis Matches", publish:t("publish"),
+    active:"Activo", paused:t("paused"), pause:t("pause"), activate:"Activar", remove:"Eliminar",
+    publishCar:"Publicar Auto", back:"← Volver", save:"Guardar", cancel:t("cancel"),
+    logout:"Cerrar Sesión", editProfile:t("editProfile"), memberSince:"Miembro desde",
     buyer:"Comprador", seller:"Vendedor", admin:"Administrador",
     chooseAnalyst:"TUS ANALISTAS", buyWithConfidence:"COMPRA CON SEGURIDAD",
     buyWithConfidenceDesc:"Elige un analista especializado para acompañarte en toda la compra.",
     generalSupport:"Chat de Soporte General", generalSupportDesc:"¿Dudas rápidas? Habla con nuestro equipo ahora",
-    online:"● En línea", available:"● Disponible", busy:"● Ocupado",
-    whatsapp:"📱 WhatsApp", chatInApp:"💬 Chat en App",
+    online:"● En línea", available:"● Disponible", busy:t("busy"),
+    whatsapp:t("whatsapp"), chatInApp:"💬 Chat en App",
     buyerGuide:"GUÍA DEL COMPRADOR", askAI:"🤖 Pregunta a nuestro especialista IA",
     askAIDesc:"Resuelve cualquier duda sobre la compra de autos",
     askAIPlaceholder:"Ej: ¿Cómo sé si el motor está bien?",
-    askAILoading:"Consultando especialista...", all:"Todos",
+    askAILoading:t("askAILoading"), all:"Todos",
     nearbyVehicles:"AUTOS CERCANOS", radius:"Radio:",
     gettingLocation:"Obteniendo tu ubicación...",
     carsNearby:"autos a menos de", kmFromYou:"km de ti",
@@ -228,6 +233,7 @@ function SplashScreen({ onStart }) {
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 function AuthScreen({ users, setUsers, setUser, onSuccess, showToast, setScreen }) {
+  const { t } = useContext(LangContext);
   const [tab, setTab] = useState("login");
   const [role, setRole] = useState("buyer");
   const [form, setForm] = useState({ name:"", email:"", phone:"", password:"", storeName:"" });
@@ -260,7 +266,7 @@ function AuthScreen({ users, setUsers, setUser, onSuccess, showToast, setScreen 
       </div>
 
       <div style={{ display:"flex", background:"#111", borderRadius:10, padding:4, marginBottom:24, gap:4 }}>
-        {[{t:"login",l:"Entrar"},{t:"register",l:"Cadastrar"}].map(({t,l})=>(
+        {[{t:"login",l:t("login")},{t:"register",l:t("register")}].map(({t,l})=>(
           <div key={t} onClick={()=>setTab(t)} style={{ flex:1, textAlign:"center", padding:"10px", borderRadius:7, fontWeight:700, fontSize:"0.85rem", cursor:"pointer", background:tab===t?"#2A2A2A":"transparent", color:tab===t?"#F0EDE8":"#555", transition:"all 0.2s" }}>{l}</div>
         ))}
       </div>
@@ -284,7 +290,7 @@ function AuthScreen({ users, setUsers, setUser, onSuccess, showToast, setScreen 
       <Input label="E-mail" value={form.email} onChange={v=>F("email",v)} placeholder="voce@email.com" type="email" />
       <Input label="Senha" value={form.password} onChange={v=>F("password",v)} placeholder="••••••••" type="password" />
 
-      <button onClick={tab==="login"?login:register} style={S.btn("primary")}>{tab==="login"?"Entrar":"Criar Conta"}</button>
+      <button onClick={tab==="login"?login:register} style={S.btn("primary")}>{tab==="login"?t("login"):"Criar Conta"}</button>
 
       <div onClick={()=>setTab(tab==="login"?"register":"login")} style={{ textAlign:"center", marginTop:14, color:"#555", fontSize:"0.82rem", cursor:"pointer" }}>
         {tab==="login"?"Não tem conta? Cadastre-se":"Já tem conta? Entrar"}
@@ -578,6 +584,7 @@ function BuyerHome({ cars, user, matches, setMatches, chats, setChats, showToast
 
 // ─── SELLER HOME ───────────────────────────────────────────────────────────────
 function SellerHome({ user, cars, setCars, matches, showToast, setScreen }) {
+  const { t } = useContext(LangContext);
   const myCars = cars.filter(c=>c.sellerId===user.id);
   const myMatches = matches.filter(m=>m.sellerId===user.id);
   const [navTab, setNavTab] = useState("cars");
@@ -616,7 +623,7 @@ function SellerHome({ user, cars, setCars, matches, showToast, setScreen }) {
       <div style={{ display:"flex", gap:4, padding:"0 16px 12px", flexShrink:0 }}>
         {["cars","matches"].map(t=>(
           <div key={t} onClick={()=>setNavTab(t)} style={{ flex:1, textAlign:"center", padding:"8px", borderRadius:8, fontWeight:700, fontSize:"0.82rem", cursor:"pointer", background:navTab===t?"#1A1A1A":"transparent", color:navTab===t?"#F0EDE8":"#555", border:navTab===t?"1px solid rgba(255,255,255,0.1)":"1px solid transparent" }}>
-            {t==="cars"?"Meus Anúncios":"Matches"}
+            {t==="cars"?t("myListings"):"Matches"}
           </div>
         ))}
       </div>
@@ -633,11 +640,11 @@ function SellerHome({ user, cars, setCars, matches, showToast, setScreen }) {
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                     <div style={{ fontWeight:700, fontSize:"0.95rem" }}>{c.model} {c.year}</div>
-                    <div style={{ ...S.tag(c.active?"#00D46A":"#555"), fontSize:"0.68rem" }}>{c.active?"Ativo":"Pausado"}</div>
+                    <div style={{ ...S.tag(c.active?"#00D46A":"#555"), fontSize:"0.68rem" }}>{c.active?t("active"):t("paused")}</div>
                   </div>
                   <div style={{ color:"#888", fontSize:"0.8rem", marginTop:2 }}>{fmtBRL(c.price)} · {fmtKm(c.km)}</div>
                   <div style={{ display:"flex", gap:8, marginTop:10 }}>
-                    <button onClick={()=>toggleActive(c.id)} style={{ flex:1, background:"#1A1A1A", border:"1px solid rgba(255,255,255,0.08)", color:"#aaa", padding:"7px", borderRadius:6, fontSize:"0.75rem", fontWeight:700, cursor:"pointer" }}>{c.active?"Pausar":"Ativar"}</button>
+                    <button onClick={()=>toggleActive(c.id)} style={{ flex:1, background:"#1A1A1A", border:"1px solid rgba(255,255,255,0.08)", color:"#aaa", padding:"7px", borderRadius:6, fontSize:"0.75rem", fontWeight:700, cursor:"pointer" }}>{c.active?t("pause"):t("activate")}</button>
                     <button onClick={()=>deleteCar(c.id)} style={{ background:"rgba(255,45,45,0.1)", border:"1px solid rgba(255,45,45,0.2)", color:"#FF6B6B", padding:"7px 12px", borderRadius:6, fontSize:"0.75rem", fontWeight:700, cursor:"pointer" }}>Remover</button>
                   </div>
                 </div>
@@ -664,7 +671,7 @@ function SellerHome({ user, cars, setCars, matches, showToast, setScreen }) {
       <div style={S.navBar}>
         <IconBtn icon="🚗" label="Anúncios" active={true} />
         <IconBtn icon="❤️" label="Matches" badge={myMatches.length} onClick={()=>setNavTab("matches")} />
-        <IconBtn icon="➕" label="Publicar" onClick={()=>setScreen("upload")} />
+        <IconBtn icon="➕" label=t("publish") onClick={()=>setScreen("upload")} />
         <IconBtn icon="👤" label="Perfil" onClick={()=>setScreen("profile")} />
       </div>
     </div>
@@ -673,6 +680,7 @@ function SellerHome({ user, cars, setCars, matches, showToast, setScreen }) {
 
 // ─── UPLOAD CAR ────────────────────────────────────────────────────────────────
 function UploadScreen({ user, setCars, showToast, setScreen }) {
+  const { t } = useContext(LangContext);
   const [form, setForm] = useState({ model:"", year:"2023", km:"", price:"", fuel:"Flex", color:"", city:"São Paulo", desc:"", tag:"Seminovo", emoji:"🚗" });
   const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -784,6 +792,7 @@ function UploadScreen({ user, setCars, showToast, setScreen }) {
 
 // ─── MATCHES ───────────────────────────────────────────────────────────────────
 function MatchesScreen({ user, matches, cars, users, onOpenChat, setScreen }) {
+  const { t } = useContext(LangContext);
   const myMatches = matches.filter(m => user.role==="buyer" ? m.buyerId===user.id : m.sellerId===user.id);
 
   return (
@@ -831,6 +840,7 @@ function MatchesScreen({ user, matches, cars, users, onOpenChat, setScreen }) {
 
 // ─── CHAT ──────────────────────────────────────────────────────────────────────
 function ChatScreen({ user, matchId, chats, setChats, matches, cars, users, setScreen }) {
+  const { t } = useContext(LangContext);
   const [msg, setMsg] = useState("");
   const bottomRef = useRef(null);
   const match = matches.find(m=>m.id===matchId);
@@ -910,6 +920,7 @@ function ChatScreen({ user, matchId, chats, setChats, matches, cars, users, setS
 
 // ─── ADMIN ─────────────────────────────────────────────────────────────────────
 function AdminScreen({ cars, setCars, users, matches, setScreen, showToast, logout }) {
+  const { t } = useContext(LangContext);
   const [tab, setTab] = useState("cars");
 
   const suspendCar = (id) => { setCars(prev=>prev.map(c=>c.id===id?{...c,active:!c.active}:c)); showToast("Status atualizado"); };
@@ -956,12 +967,12 @@ function AdminScreen({ cars, setCars, users, matches, setScreen, showToast, logo
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ display:"flex", justifyContent:"space-between" }}>
                 <div style={{ fontWeight:700, fontSize:"0.88rem" }}>{c.model} {c.year}</div>
-                <div style={{ ...S.tag(c.active?"#00D46A":"#555"), fontSize:"0.65rem" }}>{c.active?"Ativo":"Pausado"}</div>
+                <div style={{ ...S.tag(c.active?"#00D46A":"#555"), fontSize:"0.65rem" }}>{c.active?t("active"):t("paused")}</div>
               </div>
               <div style={{ color:"#888", fontSize:"0.75rem" }}>{fmtBRL(c.price)} · {c.sellerName}</div>
             </div>
             <div style={{ display:"flex", gap:6 }}>
-              <button onClick={()=>suspendCar(c.id)} style={{ background:"#1A1A1A", border:"1px solid rgba(255,255,255,0.08)", color:"#aaa", padding:"5px 8px", borderRadius:6, fontSize:"0.7rem", cursor:"pointer" }}>{c.active?"Pausar":"Ativar"}</button>
+              <button onClick={()=>suspendCar(c.id)} style={{ background:"#1A1A1A", border:"1px solid rgba(255,255,255,0.08)", color:"#aaa", padding:"5px 8px", borderRadius:6, fontSize:"0.7rem", cursor:"pointer" }}>{c.active?t("pause"):t("activate")}</button>
               <button onClick={()=>deleteCar(c.id)} style={{ background:"rgba(255,45,45,0.1)", border:"1px solid rgba(255,45,45,0.2)", color:"#FF6B6B", padding:"5px 8px", borderRadius:6, fontSize:"0.7rem", cursor:"pointer" }}>✕</button>
             </div>
           </div>
@@ -999,6 +1010,7 @@ function AdminScreen({ cars, setCars, users, matches, setScreen, showToast, logo
 
 // ─── PROFILE ───────────────────────────────────────────────────────────────────
 function ProfileScreen({ user, setUser, setScreen, logout, showToast }) {
+  const { t } = useContext(LangContext);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name:user.name, phone:user.phone||"", storeName:user.storeName||"" });
   const F = (k,v) => setForm(f=>({...f,[k]:v}));
@@ -1081,6 +1093,7 @@ function ProfileScreen({ user, setUser, setScreen, logout, showToast }) {
 
 // ─── TERMS ─────────────────────────────────────────────────────────────────────
 function TermsScreen({ setScreen }) {
+  const { t } = useContext(LangContext);
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <div style={S.topBar}>
@@ -1134,37 +1147,18 @@ function AnalystChatBox({ analyst, onClose }) {
 
   const sendMsg = async (text) => {
     if (!text.trim()) return;
-    const apiKey = getApiKey();
     const userMsg = { from:"user", text, time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) };
     setMsgs(p=>[...p, userMsg]);
     setInput("");
     setTyping(true);
-
-    if (!apiKey) {
-      setTimeout(()=>{
-        setMsgs(p=>[...p, { from:"analyst", text:"⚠️ API key não configurada. Peça ao administrador para adicionar VITE_ANTHROPIC_KEY nas variáveis de ambiente do Vercel.", time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) }]);
-        setTyping(false);
-      }, 600);
-      return;
-    }
-
-    // AI-powered analyst response via Claude API
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json", "x-api-key": apiKey, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
-        body: JSON.stringify({
-          model:"claude-sonnet-4-20250514",
-          max_tokens:1000,
-          system:`Você é ${analyst.name}, analista automotivo especializado em ${analyst.specialty} com ${analyst.experience} de experiência. Você trabalha para a AutoLink, marketplace de carros de São Paulo. Responda de forma amigável, direta e útil em português brasileiro. Seja conciso (máx 3 frases). Use emojis ocasionalmente. Foque em ajudar o usuário a tomar boas decisões na compra de carros.`,
-          messages:[...msgs.map(m=>({ role: m.from==="user"?"user":"assistant", content: m.text })), { role:"user", content: text }]
-        })
-      });
-      const data = await response.json();
-      const reply = data.content?.[0]?.text || "Desculpe, tente novamente em instantes.";
+      const reply = await callAI(
+        `Você é ${analyst.name}, analista automotivo especializado em ${analyst.specialty} com ${analyst.experience || "anos"} de experiência. Trabalha para a AutoLink, marketplace de carros de São Paulo. Responda de forma amigável, direta e útil. Seja conciso (máx 3 frases). Use emojis ocasionalmente.`,
+        [...msgs.map(m=>({ role: m.from==="user"?"user":"assistant", content: m.text })), { role:"user", content: text }]
+      );
       setMsgs(p=>[...p, { from:"analyst", text:reply, time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) }]);
-    } catch {
-      setMsgs(p=>[...p, { from:"analyst", text:"Desculpe, estou com instabilidade no momento. Tente me contatar pelo WhatsApp!", time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) }]);
+    } catch(e) {
+      setMsgs(p=>[...p, { from:"analyst", text:"Desculpe, erro de conexão. Tente pelo WhatsApp! Erro: " + e.message, time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) }]);
     }
     setTyping(false);
   };
@@ -1219,6 +1213,7 @@ function AnalystChatBox({ analyst, onClose }) {
 
 // ─── ANALYSTS SCREEN ────────────────────────────────────────────────────────────
 function AnalystsScreen({ setScreen }) {
+  const { t } = useContext(LangContext);
   const [activeChat, setActiveChat] = useState(null);
   const [supportChat, setSupportChat] = useState(false);
 
@@ -1256,7 +1251,7 @@ function AnalystsScreen({ setScreen }) {
               <div style={{ flex:1 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                   <div style={{ fontWeight:700, fontSize:"0.95rem" }}>{an.name}</div>
-                  <div style={{ ...S.tag(an.available?"#00D46A":"#555"), fontSize:"0.65rem" }}>{an.available?"● Disponível":"● Ocupado"}</div>
+                  <div style={{ ...S.tag(an.available?"#00D46A":"#555"), fontSize:"0.65rem" }}>{an.available?t("available"):t("busy")}</div>
                 </div>
                 <div style={{ fontSize:"0.78rem", color:"#FF6B1A", marginTop:2, fontWeight:600 }}>{an.specialty}</div>
                 <div style={{ display:"flex", gap:8, marginTop:4, alignItems:"center" }}>
@@ -1327,6 +1322,7 @@ const EDU_ARTICLES = [
 ];
 
 function EducationScreen({ setScreen }) {
+  const { t } = useContext(LangContext);
   const [activeArticle, setActiveArticle] = useState(null);
   const [aiQuestion, setAiQuestion] = useState("");
   const [aiAnswer, setAiAnswer] = useState("");
@@ -1338,28 +1334,16 @@ function EducationScreen({ setScreen }) {
 
   const askAI = async () => {
     if (!aiQuestion.trim()) return;
-    const apiKey = getApiKey();
     setAiLoading(true);
     setAiAnswer("");
-    if (!apiKey) {
-      setTimeout(()=>{ setAiAnswer("⚠️ API key não configurada. Configure VITE_ANTHROPIC_KEY no Vercel para ativar esta função."); setAiLoading(false); }, 400);
-      return;
-    }
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json", "x-api-key": apiKey, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
-        body: JSON.stringify({
-          model:"claude-sonnet-4-20250514",
-          max_tokens:1000,
-          system:"Você é um especialista em carros brasileiro. Responda perguntas sobre compra, venda, manutenção e documentação de veículos de forma clara, direta e amigável para iniciantes. Use linguagem simples, exemplos práticos e mencione valores em R$ quando relevante. Máximo 4 parágrafos curtos.",
-          messages:[{ role:"user", content: aiQuestion }]
-        })
-      });
-      const data = await response.json();
-      setAiAnswer(data.content?.[0]?.text || "Não consegui responder. Tente de novo!");
-    } catch {
-      setAiAnswer("Erro de conexão. Tente novamente.");
+      const reply = await callAI(
+        "Você é um especialista em carros brasileiro. Responda perguntas sobre compra, venda, manutenção e documentação de veículos de forma clara, direta e amigável para iniciantes. Use linguagem simples, exemplos práticos e mencione valores em R$ quando relevante. Máximo 4 parágrafos curtos.",
+        [{ role:"user", content: aiQuestion }]
+      );
+      setAiAnswer(reply || "Não consegui responder. Tente de novo!");
+    } catch(e) {
+      setAiAnswer("Erro: " + e.message);
     }
     setAiLoading(false);
   };
@@ -1451,6 +1435,7 @@ function categoryColor(cat) {
 
 // ─── MAP SCREEN ─────────────────────────────────────────────────────────────────
 function MapScreen({ cars, setScreen }) {
+  const { t } = useContext(LangContext);
   const [userLocation, setUserLocation] = useState(null);
   const [locationError, setLocationError] = useState(false);
   const [selectedCar, setSelectedCar] = useState(null);
@@ -1618,7 +1603,7 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [activeChatMatchId, setActiveChatMatchId] = useState(null);
   const [lang, setLang] = useState("pt");
-  const t = k => TRANSLATIONS[lang]?.[k] || TRANSLATIONS.pt[k] || k;
+  const t = (k) => TRANSLATIONS[lang]?.[k] || TRANSLATIONS.pt[k] || k;
 
   useEffect(() => {
     (async () => {
