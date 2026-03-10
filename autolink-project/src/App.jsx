@@ -278,8 +278,11 @@ function BuyerHome({ cars, user, matches, setMatches, chats, setChats, showToast
       <div style={S.topBar}>
         <div style={S.logoText}>AUTOLINK</div>
         <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+          <div onClick={()=>setScreen("analysts")} style={{ cursor:"pointer", background:"rgba(255,107,26,0.1)", border:"1px solid rgba(255,107,26,0.3)", borderRadius:8, padding:"7px 12px", display:"flex", alignItems:"center", gap:5, fontSize:"0.8rem", fontWeight:700, color:"#FF6B1A" }}>
+            🎯 Analista
+          </div>
           <div onClick={()=>{ setPendingFilter(filter); setShowFilters(true); }} style={{ position:"relative", cursor:"pointer", background:"#1A1A1A", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"7px 14px", display:"flex", alignItems:"center", gap:6, fontSize:"0.82rem", fontWeight:700 }}>
-            <span>⚙️</span> Filtros
+            <span>⚙️</span>
             {activeFilterCount > 0 && <div style={{ background:"linear-gradient(135deg,#FF2D2D,#FF6B1A)", color:"white", borderRadius:100, width:18, height:18, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"0.65rem", fontWeight:900 }}>{activeFilterCount}</div>}
           </div>
           <div onClick={()=>setScreen("profile")} style={{ cursor:"pointer" }}><Avatar name={user.name} size={32} /></div>
@@ -441,7 +444,8 @@ function BuyerHome({ cars, user, matches, setMatches, chats, setChats, showToast
       <div style={S.navBar}>
         <IconBtn icon="🔥" label="Explorar" active={true} />
         <IconBtn icon="❤️" label="Matches" badge={newMatchCount} onClick={()=>setScreen("matches")} />
-        <IconBtn icon="💬" label="Chat" onClick={()=>setScreen("matches")} />
+        <IconBtn icon="📚" label="Guia" onClick={()=>setScreen("education")} />
+        <IconBtn icon="🗺️" label="Mapa" onClick={()=>setScreen("map")} />
         <IconBtn icon="👤" label="Perfil" onClick={()=>setScreen("profile")} />
       </div>
     </div>
@@ -985,6 +989,485 @@ function TermsScreen({ setScreen }) {
   );
 }
 
+// ─── ANALYSTS DATA ─────────────────────────────────────────────────────────────
+const ANALYSTS = [
+  { id:"an1", name:"Carlos Mendes", cpf:"123.456.789-01", specialty:"Carros usados & avaliação de preço", experience:"8 anos", rating:4.9, reviews:312, whatsapp:"5511991110001", email:"carlos@autolink.com.br", avatar:"CM", bio:"Especialista em avaliação de veículos seminovos e usados. Ajuda compradores a identificar o preço justo e evitar armadilhas comuns no mercado.", available:true },
+  { id:"an2", name:"Fernanda Castro", cpf:"234.567.890-12", specialty:"SUVs, importados & documentação", experience:"6 anos", rating:4.8, reviews:198, whatsapp:"5511991110002", email:"fernanda@autolink.com.br", avatar:"FC", bio:"Especialista em SUVs e carros importados. Conhece a fundo as regras de documentação e transferência de veículos no Brasil.", available:true },
+  { id:"an3", name:"Rafael Oliveira", cpf:"345.678.901-23", specialty:"Carros populares & financiamento", experience:"10 anos", rating:5.0, reviews:487, whatsapp:"5511991110003", email:"rafael@autolink.com.br", avatar:"RO", bio:"O mais experiente da equipe. Especialista em carros populares e opções de financiamento. Ajuda compradores a encontrar o melhor custo-benefício.", available:false },
+  { id:"an4", name:"Juliana Neves", cpf:"456.789.012-34", specialty:"Elétricos, híbridos & tecnologia", experience:"4 anos", rating:4.7, reviews:124, whatsapp:"5511991110004", email:"juliana@autolink.com.br", avatar:"JN", bio:"Especialista no crescente mercado de veículos elétricos e híbridos. Ideal para quem quer migrar para mobilidade sustentável.", available:true },
+];
+
+// ─── ANALYST CHAT BOX ──────────────────────────────────────────────────────────
+function AnalystChatBox({ analyst, onClose }) {
+  const [msgs, setMsgs] = useState([
+    { from:"analyst", text:`Olá! Sou ${analyst.name.split(" ")[0]}, especialista em ${analyst.specialty}. Como posso te ajudar hoje? 😊`, time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) }
+  ]);
+  const [input, setInput] = useState("");
+  const [typing, setTyping] = useState(false);
+  const bottomRef = useRef(null);
+
+  const quickReplies = ["O preço está justo?","Como verificar o histórico?","Quais documentos preciso?","Vale a pena comprar?"];
+
+  const sendMsg = async (text) => {
+    if (!text.trim()) return;
+    const userMsg = { from:"user", text, time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) };
+    setMsgs(p=>[...p, userMsg]);
+    setInput("");
+    setTyping(true);
+
+    // AI-powered analyst response via Claude API
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:1000,
+          system:`Você é ${analyst.name}, analista automotivo especializado em ${analyst.specialty} com ${analyst.experience} de experiência. Você trabalha para a AutoLink, marketplace de carros de São Paulo. Responda de forma amigável, direta e útil em português brasileiro. Seja conciso (máx 3 frases). Use emojis ocasionalmente. Foque em ajudar o usuário a tomar boas decisões na compra de carros.`,
+          messages:[...msgs.map(m=>({ role: m.from==="user"?"user":"assistant", content: m.text })), { role:"user", content: text }]
+        })
+      });
+      const data = await response.json();
+      const reply = data.content?.[0]?.text || "Desculpe, tente novamente em instantes.";
+      setMsgs(p=>[...p, { from:"analyst", text:reply, time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) }]);
+    } catch {
+      setMsgs(p=>[...p, { from:"analyst", text:"Desculpe, estou com instabilidade no momento. Tente me contatar pelo WhatsApp!", time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) }]);
+    }
+    setTyping(false);
+  };
+
+  useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:"smooth"}); }, [msgs, typing]);
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:1000, display:"flex", flexDirection:"column", maxWidth:480, margin:"0 auto" }}>
+      {/* Header */}
+      <div style={{ background:"#111", borderBottom:"1px solid rgba(255,255,255,0.08)", padding:"14px 16px", display:"flex", alignItems:"center", gap:12 }}>
+        <div style={{ width:40, height:40, borderRadius:"50%", background:"linear-gradient(135deg,#FF2D2D,#FF6B1A)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, fontSize:"0.9rem", color:"white" }}>{analyst.avatar}</div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:700, fontSize:"0.95rem" }}>{analyst.name}</div>
+          <div style={{ fontSize:"0.75rem", color:"#00D46A" }}>● Online agora</div>
+        </div>
+        <div onClick={onClose} style={{ color:"#888", cursor:"pointer", fontSize:"1.3rem", padding:4 }}>✕</div>
+      </div>
+
+      {/* Messages */}
+      <div style={{ flex:1, overflowY:"auto", padding:"16px", display:"flex", flexDirection:"column", gap:10 }}>
+        {msgs.map((m,i)=>(
+          <div key={i} style={{ display:"flex", justifyContent: m.from==="user"?"flex-end":"flex-start" }}>
+            <div style={{ maxWidth:"80%", background: m.from==="user"?"linear-gradient(135deg,#FF2D2D,#FF6B1A)":"#1A1A1A", color:"white", padding:"10px 14px", borderRadius: m.from==="user"?"16px 16px 4px 16px":"16px 16px 16px 4px", fontSize:"0.88rem", lineHeight:1.5 }}>
+              {m.text}
+              <div style={{ fontSize:"0.68rem", opacity:0.6, marginTop:4, textAlign: m.from==="user"?"right":"left" }}>{m.time}</div>
+            </div>
+          </div>
+        ))}
+        {typing && (
+          <div style={{ display:"flex", justifyContent:"flex-start" }}>
+            <div style={{ background:"#1A1A1A", padding:"10px 16px", borderRadius:"16px 16px 16px 4px", fontSize:"0.88rem", color:"#888" }}>digitando...</div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Quick replies */}
+      <div style={{ padding:"8px 16px", display:"flex", gap:8, overflowX:"auto" }}>
+        {quickReplies.map(q=>(
+          <div key={q} onClick={()=>sendMsg(q)} style={{ background:"#1A1A1A", border:"1px solid rgba(255,107,26,0.3)", color:"#FF6B1A", padding:"6px 12px", borderRadius:100, fontSize:"0.75rem", whiteSpace:"nowrap", cursor:"pointer", fontWeight:600 }}>{q}</div>
+        ))}
+      </div>
+
+      {/* Input */}
+      <div style={{ padding:"12px 16px", borderTop:"1px solid rgba(255,255,255,0.08)", display:"flex", gap:10, background:"#0A0A0A" }}>
+        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendMsg(input)} placeholder="Pergunta para o analista..." style={{ ...S.input, marginBottom:0, flex:1 }} />
+        <button onClick={()=>sendMsg(input)} style={{ background:"linear-gradient(135deg,#FF2D2D,#FF6B1A)", border:"none", color:"white", width:44, height:44, borderRadius:10, cursor:"pointer", fontSize:"1.1rem", flexShrink:0 }}>↑</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ANALYSTS SCREEN ────────────────────────────────────────────────────────────
+function AnalystsScreen({ setScreen }) {
+  const [activeChat, setActiveChat] = useState(null);
+  const [supportChat, setSupportChat] = useState(false);
+
+  return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <div style={S.topBar}>
+        <div onClick={()=>setScreen("home")} style={{ cursor:"pointer", color:"#888", fontSize:"0.85rem" }}>← Voltar</div>
+        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:"1.3rem", letterSpacing:2 }}>SEUS ANALISTAS</div>
+        <div style={{ width:48 }} />
+      </div>
+
+      <div style={S.scrollArea}>
+        {/* Header card */}
+        <div style={{ background:"linear-gradient(135deg,rgba(255,45,45,0.1),rgba(255,107,26,0.05))", border:"1px solid rgba(255,107,26,0.2)", borderRadius:16, padding:20, marginBottom:20, marginTop:16 }}>
+          <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:"1.3rem", letterSpacing:1, marginBottom:8 }}>🎯 COMPRE COM SEGURANÇA</div>
+          <div style={{ fontSize:"0.85rem", color:"#aaa", lineHeight:1.6 }}>Escolha um analista especializado para te acompanhar durante toda a compra. Tire dúvidas, avalie preços e negocie com confiança.</div>
+        </div>
+
+        {/* Support chat button */}
+        <div onClick={()=>setSupportChat(true)} style={{ ...S.card({ marginBottom:20, cursor:"pointer", display:"flex", alignItems:"center", gap:14 }), background:"rgba(0,212,106,0.05)", border:"1px solid rgba(0,212,106,0.2)" }}>
+          <div style={{ width:48, height:48, borderRadius:"50%", background:"rgba(0,212,106,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1.5rem" }}>💬</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontWeight:700, fontSize:"0.95rem", color:"#00D46A" }}>Chat de Suporte Geral</div>
+            <div style={{ fontSize:"0.8rem", color:"#888", marginTop:2 }}>Dúvidas rápidas? Fale com nossa equipe agora</div>
+          </div>
+          <div style={{ color:"#00D46A", fontSize:"0.8rem" }}>● Online</div>
+        </div>
+
+        <div style={{ ...S.sectionTitle, fontSize:"1rem", color:"#888", marginBottom:16 }}>ESCOLHA SEU ANALISTA</div>
+
+        {ANALYSTS.map(an=>(
+          <div key={an.id} style={S.card({ marginBottom:16 })}>
+            <div style={{ display:"flex", gap:14, marginBottom:14 }}>
+              <div style={{ width:56, height:56, borderRadius:"50%", background:"linear-gradient(135deg,#FF2D2D,#FF6B1A)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, fontSize:"1.1rem", color:"white", flexShrink:0 }}>{an.avatar}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                  <div style={{ fontWeight:700, fontSize:"0.95rem" }}>{an.name}</div>
+                  <div style={{ ...S.tag(an.available?"#00D46A":"#555"), fontSize:"0.65rem" }}>{an.available?"● Disponível":"● Ocupado"}</div>
+                </div>
+                <div style={{ fontSize:"0.78rem", color:"#FF6B1A", marginTop:2, fontWeight:600 }}>{an.specialty}</div>
+                <div style={{ display:"flex", gap:8, marginTop:4, alignItems:"center" }}>
+                  <span style={{ fontSize:"0.78rem", color:"#aaa" }}>⭐ {an.rating}</span>
+                  <span style={{ fontSize:"0.72rem", color:"#555" }}>({an.reviews} avaliações)</span>
+                  <span style={{ fontSize:"0.72rem", color:"#555" }}>· {an.experience}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontSize:"0.8rem", color:"#888", lineHeight:1.6, marginBottom:12 }}>{an.bio}</div>
+
+            <div style={{ background:"#0A0A0A", borderRadius:8, padding:"10px 14px", marginBottom:12 }}>
+              <div style={{ fontSize:"0.72rem", color:"#555", marginBottom:4 }}>CPF: {an.cpf}</div>
+              <div style={{ fontSize:"0.72rem", color:"#555" }}>✉️ {an.email}</div>
+            </div>
+
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={()=>window.open(`https://wa.me/${an.whatsapp}`,"_blank")} style={{ flex:1, background:"rgba(0,212,106,0.1)", border:"1px solid rgba(0,212,106,0.3)", color:"#00D46A", padding:"10px", borderRadius:8, fontSize:"0.8rem", fontWeight:700, cursor:"pointer" }}>📱 WhatsApp</button>
+              <button onClick={()=>setActiveChat(an)} style={{ flex:1, background:"linear-gradient(135deg,#FF2D2D,#FF6B1A)", border:"none", color:"white", padding:"10px", borderRadius:8, fontSize:"0.8rem", fontWeight:700, cursor:"pointer" }}>💬 Chat no App</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {activeChat && <AnalystChatBox analyst={activeChat} onClose={()=>setActiveChat(null)} />}
+      {supportChat && <AnalystChatBox analyst={{ id:"support", name:"Suporte AutoLink", specialty:"dúvidas gerais sobre compra e venda de carros", avatar:"AL", whatsapp:"5511991110000", email:"oi@autolink.com.br" }} onClose={()=>setSupportChat(false)} />}
+    </div>
+  );
+}
+
+// ─── EDUCATION SCREEN ───────────────────────────────────────────────────────────
+const EDU_ARTICLES = [
+  { id:"e1", icon:"🔍", title:"O que observar ao comprar um carro usado", category:"Compra", time:"5 min", content:[
+    { heading:"Verifique a carroceria", text:"Procure por amassados, riscos, diferenças na pintura e gaps irregulares entre as peças. Isso pode indicar batidas ou reparos mal feitos." },
+    { heading:"Teste o motor em frio", text:"Peça para ver o carro com o motor frio. Um motor que 'fuma' ao ligar, faz barulhos estranhos ou demora para pegar pode ter problemas sérios." },
+    { heading:"Verifique os pneus", text:"Pneus gastos irregularmente indicam problemas no alinhamento ou na suspensão. Troca de 4 pneus pode custar R$1.500 a R$3.000." },
+    { heading:"Faça um test-drive", text:"Teste em diferentes velocidades. Preste atenção em vibrações, ruídos, se o carro puxa para um lado e se os freios respondem bem." },
+    { heading:"Cheque a documentação", text:"Verifique se o IPVA está pago, se há multas, se o carro não está alienado ou com financiamento em aberto. Use o site do Detran-SP." },
+  ]},
+  { id:"e2", icon:"💰", title:"Como saber se o preço está justo", category:"Preço", time:"4 min", content:[
+    { heading:"Use a tabela FIPE", text:"A Tabela FIPE é a referência oficial para preços de veículos no Brasil. Acesse fipe.org.br e pesquise o modelo para ver o valor de mercado." },
+    { heading:"Compare com o mercado", text:"Pesquise em sites como OLX, Webmotors e Mercado Livre. Se o preço estiver muito abaixo da média, pode ser sinal de problema." },
+    { heading:"Considere o estado do veículo", text:"Um carro revisado, com histórico de manutenção e único dono pode valer até 15% mais que a FIPE. Mau estado justifica desconto." },
+    { heading:"Considere os custos futuros", text:"Calcule quanto vai gastar em manutenção, IPVA, seguro e possíveis reparos. Um carro mais barato pode sair mais caro no longo prazo." },
+  ]},
+  { id:"e3", icon:"⚠️", title:"Problemas comuns a verificar", category:"Atenção", time:"6 min", content:[
+    { heading:"Verifique o óleo do motor", text:"Óleo com cor de café com leite (misturado com água) indica problema na junta do cabeçote — reparo caro, entre R$2.000 e R$6.000." },
+    { heading:"Cheque o histórico de batidas", text:"Use o serviço de laudo veicular. Por R$50-150 você descobre se o carro já foi batido, roubado ou tem restrições." },
+    { heading:"Teste o ar-condicionado", text:"Conserto de A/C pode custar R$800 a R$3.000. Teste se esfria bem e se não há barulho ao ligar." },
+    { heading:"Observe a suspensão", text:"Passe por lombadas devagar. Barulhos de 'baque' ou 'rangido' indicam amortecedores ou buchas desgastados." },
+    { heading:"Verifique os freios", text:"Teste numa frenagem firme. O carro não deve puxar para nenhum lado. Barulho de metal indica pastilhas gastas." },
+  ]},
+  { id:"e4", icon:"📋", title:"Documentação e transferência no Brasil", category:"Burocracia", time:"5 min", content:[
+    { heading:"Documentos necessários", text:"Comprador: RG, CPF e comprovante de residência. Vendedor: documento do veículo (CRLV), RG e CPF." },
+    { heading:"O que verificar antes de comprar", text:"Verifique no site do Detran-SP: IPVA em dia, multas, se o carro está em débito, alienado ou com restrição judicial." },
+    { heading:"Como fazer a transferência", text:"Assine o DUT (Documento Único de Transferência) no campo do comprador. O comprador tem 30 dias para transferir no Detran." },
+    { heading:"Custos da transferência", text:"A transferência custa em média R$300-500 em São Paulo, incluindo taxa do Detran e o laudo do despachante." },
+    { heading:"Cuidado com a venda informal", text:"Nunca compre um carro 'no papel'. Sem a transferência, multas e impostos do novo proprietário vêm no CPF do antigo dono." },
+  ]},
+  { id:"e5", icon:"🔧", title:"Noções básicas de manutenção", category:"Manutenção", time:"4 min", content:[
+    { heading:"Troca de óleo", text:"A cada 5.000 a 10.000 km (depende do motor). Custo: R$150-400. Negligenciar é a causa número 1 de motores queimados." },
+    { heading:"Revisão de freios", text:"A cada 20.000 km ou quando ouvir barulho. Pastilhas custam R$100-300 o jogo. Disco R$200-500 por par." },
+    { heading:"Pneus e alinhamento", text:"Calibre os pneus mensalmente. Faça alinhamento e balanceamento a cada 10.000 km (R$80-150). Pneus duram mais e o carro anda melhor." },
+    { heading:"Filtros", text:"Filtro de ar (R$30-80) e filtro de combustível (R$40-100) devem ser trocados a cada 15.000-30.000 km. Simples e baratos, fazem grande diferença." },
+    { heading:"Revisão preventiva", text:"Uma vez por ano faça uma revisão completa. Custa R$300-800 mas pode prevenir problemas de R$3.000+." },
+  ]},
+];
+
+function EducationScreen({ setScreen }) {
+  const [activeArticle, setActiveArticle] = useState(null);
+  const [aiQuestion, setAiQuestion] = useState("");
+  const [aiAnswer, setAiAnswer] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const categories = ["Todos", "Compra", "Preço", "Atenção", "Burocracia", "Manutenção"];
+  const [activeCategory, setActiveCategory] = useState("Todos");
+
+  const filtered = activeCategory === "Todos" ? EDU_ARTICLES : EDU_ARTICLES.filter(a=>a.category===activeCategory);
+
+  const askAI = async () => {
+    if (!aiQuestion.trim()) return;
+    setAiLoading(true);
+    setAiAnswer("");
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:1000,
+          system:"Você é um especialista em carros brasileiro. Responda perguntas sobre compra, venda, manutenção e documentação de veículos de forma clara, direta e amigável para iniciantes. Use linguagem simples, exemplos práticos e mencione valores em R$ quando relevante. Máximo 4 parágrafos curtos.",
+          messages:[{ role:"user", content: aiQuestion }]
+        })
+      });
+      const data = await response.json();
+      setAiAnswer(data.content?.[0]?.text || "Não consegui responder. Tente de novo!");
+    } catch {
+      setAiAnswer("Erro de conexão. Tente novamente.");
+    }
+    setAiLoading(false);
+  };
+
+  if (activeArticle) return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <div style={S.topBar}>
+        <div onClick={()=>setActiveArticle(null)} style={{ cursor:"pointer", color:"#888", fontSize:"0.85rem" }}>← Voltar</div>
+        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:"1.1rem", letterSpacing:1 }}>{activeArticle.icon} {activeArticle.category.toUpperCase()}</div>
+        <div style={{ width:48 }} />
+      </div>
+      <div style={S.scrollArea}>
+        <div style={{ paddingTop:20 }}>
+          <div style={{ ...S.tag(categoryColor(activeArticle.category)), marginBottom:12 }}>{activeArticle.category} · {activeArticle.time} de leitura</div>
+          <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:"1.6rem", letterSpacing:1, lineHeight:1.2, marginBottom:24 }}>{activeArticle.title}</div>
+          {activeArticle.content.map((section,i)=>(
+            <div key={i} style={{ marginBottom:20 }}>
+              <div style={{ fontWeight:700, fontSize:"0.95rem", color:"#FF6B1A", marginBottom:8 }}>{section.heading}</div>
+              <div style={{ fontSize:"0.88rem", color:"#aaa", lineHeight:1.7 }}>{section.text}</div>
+            </div>
+          ))}
+          <div style={{ marginTop:24, padding:16, background:"rgba(255,107,26,0.06)", border:"1px solid rgba(255,107,26,0.15)", borderRadius:12, fontSize:"0.82rem", color:"#888", lineHeight:1.6 }}>
+            💡 <strong style={{ color:"#FF6B1A" }}>Dúvida?</strong> Converse com um dos nossos analistas especializados para uma orientação personalizada.
+          </div>
+          <button onClick={()=>setScreen("analysts")} style={{ ...S.btn("primary"), marginTop:16 }}>Falar com Analista</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <div style={S.topBar}>
+        <div onClick={()=>setScreen("home")} style={{ cursor:"pointer", color:"#888", fontSize:"0.85rem" }}>← Voltar</div>
+        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:"1.3rem", letterSpacing:2 }}>GUIA DO COMPRADOR</div>
+        <div style={{ width:48 }} />
+      </div>
+
+      <div style={S.scrollArea}>
+        {/* AI Ask box */}
+        <div style={{ marginTop:16, marginBottom:20, background:"linear-gradient(135deg,rgba(255,45,45,0.08),rgba(255,107,26,0.04))", border:"1px solid rgba(255,107,26,0.2)", borderRadius:16, padding:16 }}>
+          <div style={{ fontWeight:700, fontSize:"0.9rem", marginBottom:8 }}>🤖 Pergunte ao nosso especialista IA</div>
+          <div style={{ fontSize:"0.8rem", color:"#888", marginBottom:12 }}>Tire qualquer dúvida sobre compra de carros</div>
+          <div style={{ display:"flex", gap:8 }}>
+            <input value={aiQuestion} onChange={e=>setAiQuestion(e.target.value)} onKeyDown={e=>e.key==="Enter"&&askAI()} placeholder="Ex: Como sei se o motor está bom?" style={{ ...S.input, marginBottom:0, flex:1, fontSize:"0.85rem" }} />
+            <button onClick={askAI} style={{ background:"linear-gradient(135deg,#FF2D2D,#FF6B1A)", border:"none", color:"white", width:44, height:44, borderRadius:8, cursor:"pointer", flexShrink:0 }}>↑</button>
+          </div>
+          {aiLoading && <div style={{ marginTop:10, color:"#888", fontSize:"0.82rem" }}>Consultando especialista...</div>}
+          {aiAnswer && (
+            <div style={{ marginTop:12, background:"#111", borderRadius:10, padding:14, fontSize:"0.84rem", color:"#ccc", lineHeight:1.7, borderLeft:"3px solid #FF6B1A" }}>{aiAnswer}</div>
+          )}
+        </div>
+
+        {/* Categories */}
+        <div style={{ display:"flex", gap:8, overflowX:"auto", marginBottom:20, paddingBottom:4 }}>
+          {categories.map(c=>(
+            <div key={c} onClick={()=>setActiveCategory(c)} style={{ background: activeCategory===c?"rgba(255,107,26,0.15)":"#1A1A1A", border:`1.5px solid ${activeCategory===c?"#FF6B1A":"rgba(255,255,255,0.07)"}`, color: activeCategory===c?"#FF6B1A":"#888", padding:"7px 14px", borderRadius:100, fontSize:"0.78rem", fontWeight:700, whiteSpace:"nowrap", cursor:"pointer" }}>{c}</div>
+          ))}
+        </div>
+
+        {/* Articles */}
+        {filtered.map(article=>(
+          <div key={article.id} onClick={()=>setActiveArticle(article)} style={{ ...S.card({ marginBottom:12, cursor:"pointer", display:"flex", gap:14, alignItems:"center" }) }}>
+            <div style={{ fontSize:"2rem", flexShrink:0 }}>{article.icon}</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontWeight:700, fontSize:"0.9rem", marginBottom:4 }}>{article.title}</div>
+              <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                <div style={{ ...S.tag(categoryColor(article.category)), fontSize:"0.65rem" }}>{article.category}</div>
+                <span style={{ fontSize:"0.75rem", color:"#555" }}>⏱ {article.time}</span>
+              </div>
+            </div>
+            <div style={{ color:"#555" }}>→</div>
+          </div>
+        ))}
+
+        <div style={{ marginTop:8, padding:16, background:"#111", borderRadius:12, textAlign:"center" }}>
+          <div style={{ fontSize:"0.85rem", color:"#888", marginBottom:12 }}>Precisa de ajuda personalizada?</div>
+          <button onClick={()=>setScreen("analysts")} style={{ ...S.btn("primary"), width:"auto", padding:"10px 24px" }}>Falar com Analista 🎯</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function categoryColor(cat) {
+  const colors = { Compra:"#4A9EFF", Preço:"#00D46A", Atenção:"#FF6B6B", Burocracia:"#A855F7", Manutenção:"#FF6B1A" };
+  return colors[cat] || "#FF6B1A";
+}
+
+// ─── MAP SCREEN ─────────────────────────────────────────────────────────────────
+function MapScreen({ cars, setScreen }) {
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationError, setLocationError] = useState(false);
+  const [selectedCar, setSelectedCar] = useState(null);
+  const [distFilter, setDistFilter] = useState(50);
+  const [loading, setLoading] = useState(true);
+
+  // São Paulo neighborhood coords for seed cars
+  const carCoords = {
+    c1: { lat:-23.5614, lng:-46.6560 }, // Pinheiros
+    c2: { lat:-23.5489, lng:-46.6388 }, // Vila Madalena
+    c3: { lat:-23.5878, lng:-46.6576 }, // Moema
+    c4: { lat:-23.5629, lng:-46.6544 }, // Itaim Bibi
+    c5: { lat:-23.5205, lng:-46.6333 }, // Santana
+    c6: { lat:-23.5962, lng:-46.6842 }, // Santo André
+  };
+
+  useEffect(()=>{
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos=>{ setUserLocation({ lat:pos.coords.latitude, lng:pos.coords.longitude }); setLoading(false); },
+        ()=>{ setUserLocation({ lat:-23.5505, lng:-46.6333 }); setLocationError(true); setLoading(false); },
+        { timeout:5000 }
+      );
+    } else {
+      setUserLocation({ lat:-23.5505, lng:-46.6333 }); setLoading(false);
+    }
+  },[]);
+
+  const getDistance = (lat1,lng1,lat2,lng2) => {
+    const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
+    const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  };
+
+  const activeCars = cars.filter(c=>c.active);
+  const carsWithDist = activeCars.map(c=>{
+    const coords = carCoords[c.id] || { lat:-23.5505+((Math.random()-0.5)*0.1), lng:-46.6333+((Math.random()-0.5)*0.1) };
+    const dist = userLocation ? getDistance(userLocation.lat, userLocation.lng, coords.lat, coords.lng) : 0;
+    return { ...c, coords, dist };
+  }).filter(c=>c.dist<=distFilter).sort((a,b)=>a.dist-b.dist);
+
+  // Build Google Maps embed URL with markers
+  const buildMapUrl = () => {
+    if (!userLocation) return "";
+    const base = `https://www.google.com/maps/embed/v1/search?key=AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFmBWY&q=carros+à+venda+São+Paulo&center=${userLocation.lat},${userLocation.lng}&zoom=12`;
+    return base;
+  };
+
+  return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <div style={S.topBar}>
+        <div onClick={()=>setScreen("home")} style={{ cursor:"pointer", color:"#888", fontSize:"0.85rem" }}>← Voltar</div>
+        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:"1.3rem", letterSpacing:2 }}>CARROS PRÓXIMOS</div>
+        <div style={{ width:48 }} />
+      </div>
+
+      {/* Distance filter */}
+      <div style={{ padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <span style={{ fontSize:"0.78rem", color:"#888", whiteSpace:"nowrap" }}>Raio:</span>
+          {[5,10,20,50].map(d=>(
+            <div key={d} onClick={()=>setDistFilter(d)} style={{ background: distFilter===d?"rgba(255,107,26,0.15)":"#1A1A1A", border:`1.5px solid ${distFilter===d?"#FF6B1A":"rgba(255,255,255,0.07)"}`, color: distFilter===d?"#FF6B1A":"#888", padding:"5px 12px", borderRadius:100, fontSize:"0.75rem", fontWeight:700, cursor:"pointer" }}>{d} km</div>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:12, color:"#555" }}>
+          <div style={{ fontSize:"2rem" }}>📍</div>
+          <div style={{ fontSize:"0.85rem" }}>Obtendo sua localização...</div>
+        </div>
+      ) : (
+        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+          {/* Visual map simulation */}
+          <div style={{ height:220, background:"#0F1923", position:"relative", overflow:"hidden", flexShrink:0 }}>
+            {/* Grid lines */}
+            {[...Array(8)].map((_,i)=>(
+              <div key={i} style={{ position:"absolute", left:0, right:0, top:`${i*14}%`, height:1, background:"rgba(255,255,255,0.04)" }} />
+            ))}
+            {[...Array(8)].map((_,i)=>(
+              <div key={i} style={{ position:"absolute", top:0, bottom:0, left:`${i*14}%`, width:1, background:"rgba(255,255,255,0.04)" }} />
+            ))}
+
+            {/* Roads simulation */}
+            <div style={{ position:"absolute", top:"45%", left:0, right:0, height:3, background:"rgba(255,255,255,0.08)" }} />
+            <div style={{ position:"absolute", top:0, bottom:0, left:"40%", width:3, background:"rgba(255,255,255,0.08)" }} />
+            <div style={{ position:"absolute", top:"70%", left:0, right:0, height:2, background:"rgba(255,255,255,0.05)", transform:"rotate(-5deg)" }} />
+
+            {/* User location */}
+            <div style={{ position:"absolute", top:"50%", left:"45%", transform:"translate(-50%,-50%)", zIndex:10 }}>
+              <div style={{ width:16, height:16, borderRadius:"50%", background:"#4A9EFF", border:"3px solid white", boxShadow:"0 0 0 6px rgba(74,158,255,0.2)" }} />
+            </div>
+
+            {/* Car markers */}
+            {carsWithDist.map((c,i)=>{
+              const positions = [{top:"25%",left:"60%"},{top:"65%",left:"25%"},{top:"30%",left:"25%"},{top:"70%",left:"65%"},{top:"20%",left:"75%"},{top:"75%",left:"80%"}];
+              const pos = positions[i % positions.length];
+              return (
+                <div key={c.id} onClick={()=>setSelectedCar(c)} style={{ position:"absolute", ...pos, transform:"translate(-50%,-50%)", zIndex:5, cursor:"pointer" }}>
+                  <div style={{ background: selectedCar?.id===c.id?"#FF6B1A":"#FF2D2D", color:"white", padding:"3px 8px", borderRadius:100, fontSize:"0.65rem", fontWeight:700, whiteSpace:"nowrap", boxShadow:"0 2px 8px rgba(0,0,0,0.5)", border: selectedCar?.id===c.id?"2px solid white":"2px solid transparent" }}>
+                    {c.emoji} {fmtBRL(c.price).replace("R$ ","")}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Map legend */}
+            <div style={{ position:"absolute", bottom:8, left:8, fontSize:"0.7rem", color:"#555", background:"rgba(0,0,0,0.7)", padding:"4px 8px", borderRadius:6 }}>
+              📍 Você &nbsp; 🔴 Carros
+            </div>
+            {locationError && <div style={{ position:"absolute", top:8, right:8, background:"rgba(255,107,26,0.9)", color:"white", fontSize:"0.7rem", padding:"4px 8px", borderRadius:6 }}>📍 Usando São Paulo</div>}
+          </div>
+
+          {/* Selected car detail */}
+          {selectedCar && (
+            <div onClick={()=>setScreen("home")} style={{ background:"linear-gradient(135deg,rgba(255,45,45,0.1),rgba(255,107,26,0.05))", border:"1px solid rgba(255,107,26,0.2)", margin:"12px 16px 0", borderRadius:12, padding:14, cursor:"pointer", display:"flex", gap:12, alignItems:"center" }}>
+              <div style={{ fontSize:"2rem" }}>{selectedCar.photo ? <img src={selectedCar.photo} alt="" style={{ width:48, height:48, borderRadius:8, objectFit:"cover" }} /> : selectedCar.emoji}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:700, fontSize:"0.9rem" }}>{selectedCar.model} {selectedCar.year}</div>
+                <div style={{ fontSize:"0.78rem", color:"#888" }}>{fmtBRL(selectedCar.price)} · {selectedCar.dist.toFixed(1)} km de você</div>
+              </div>
+              <div style={{ color:"#FF6B1A", fontSize:"0.8rem", fontWeight:700 }}>Ver →</div>
+            </div>
+          )}
+
+          {/* Cars list */}
+          <div style={{ flex:1, overflowY:"auto", padding:"12px 16px" }}>
+            <div style={{ fontSize:"0.78rem", color:"#555", marginBottom:12 }}>{carsWithDist.length} carros em até {distFilter} km de você</div>
+            {carsWithDist.length === 0 ? (
+              <div style={{ textAlign:"center", color:"#555", paddingTop:32 }}>
+                <div style={{ fontSize:"3rem", marginBottom:12 }}>🗺️</div>
+                <div>Nenhum carro nesse raio. Aumente o filtro de distância!</div>
+              </div>
+            ) : (
+              carsWithDist.map(c=>(
+                <div key={c.id} onClick={()=>setSelectedCar(selectedCar?.id===c.id?null:c)} style={{ ...S.card({ marginBottom:10, cursor:"pointer", display:"flex", gap:12, alignItems:"center" }), border: selectedCar?.id===c.id?"1px solid rgba(255,107,26,0.4)":"1px solid rgba(255,255,255,0.07)" }}>
+                  <div style={{ width:48, height:48, borderRadius:10, overflow:"hidden", background:"#1A1A1A", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1.5rem", flexShrink:0 }}>
+                    {c.photo ? <img src={c.photo} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} /> : c.emoji}
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"0.88rem" }}>{c.model} {c.year}</div>
+                    <div style={{ fontSize:"0.78rem", color:"#888" }}>{fmtBRL(c.price)} · {fmtKm(c.km)}</div>
+                    <div style={{ fontSize:"0.72rem", color:"#FF6B1A", marginTop:2 }}>📍 {c.dist.toFixed(1)} km · {c.city}</div>
+                  </div>
+                  <div style={{ ...S.tag(c.dist<5?"#00D46A":c.dist<20?"#FF6B1A":"#555"), fontSize:"0.65rem" }}>{c.dist.toFixed(1)} km</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── ROOT APP ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = useState("splash");
@@ -1054,6 +1537,9 @@ export default function App() {
       {screen==="upload" && <UploadScreen {...commonProps} />}
       {screen==="terms" && <TermsScreen setScreen={handleScreen} />}
       {screen==="profile" && <ProfileScreen {...commonProps} />}
+      {screen==="analysts" && <AnalystsScreen setScreen={handleScreen} />}
+      {screen==="education" && <EducationScreen setScreen={handleScreen} />}
+      {screen==="map" && <MapScreen cars={cars} setScreen={handleScreen} />}
     </div>
   );
 }
