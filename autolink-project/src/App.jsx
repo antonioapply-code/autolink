@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 
 const save = async (key, val) => { try { await window.storage.set(key, JSON.stringify(val)); } catch(e) {} };
 const load = async (key, fallback = null) => { try { const r = await window.storage.get(key); return r ? JSON.parse(r.value) : fallback; } catch(e) { return fallback; } };
@@ -6,6 +7,126 @@ const load = async (key, fallback = null) => { try { const r = await window.stor
 const fmtBRL = v => "R$ " + Number(v).toLocaleString("pt-BR");
 const fmtKm = v => Number(v).toLocaleString("pt-BR") + " km";
 const fmtDate = s => new Date(s).toLocaleDateString("pt-BR");
+
+// ─── API KEY ──────────────────────────────────────────────────────────────────
+const getApiKey = () => {
+  // Reads from Vite env var (set in Vercel as VITE_ANTHROPIC_KEY)
+  try { return import.meta.env?.VITE_ANTHROPIC_KEY || ""; } catch { return ""; }
+};
+
+// ─── LANGUAGE CONTEXT ─────────────────────────────────────────────────────────
+const LangContext = createContext({ lang:"pt", t: k=>k });
+
+const TRANSLATIONS = {
+  pt: {
+    explore:"Explorar", matches:"Matches", guide:"Guia", map:"Mapa", profile:"Perfil",
+    analyst:"Analista", filters:"Filtros", searchPlaceholder:"Buscar por modelo, marca, cor...",
+    swipeRight:"CURTIR ♥", swipeLeft:"PASSAR ✗", noMoreCars:"SEM MAIS CARROS",
+    noMoreCarsDesc:"Você viu todos os carros disponíveis. Volte mais tarde!",
+    login:"Entrar", register:"Cadastrar", email:"E-mail", password:"Senha", name:"Nome",
+    phone:"Telefone", enterApp:"ENTRAR NO APP", demoAccounts:"Contas demo:",
+    myListings:"Meus Anúncios", myMatches:"Meus Matches", publish:"Publicar",
+    active:"Ativo", paused:"Pausado", pause:"Pausar", activate:"Ativar", remove:"Remover",
+    publishCar:"Publicar Carro", back:"← Voltar", save:"Salvar", cancel:"Cancelar",
+    logout:"Sair da Conta", editProfile:"Editar Perfil", memberSince:"Membro desde",
+    buyer:"Comprador", seller:"Vendedor", admin:"Administrador",
+    chooseAnalyst:"SEUS ANALISTAS", buyWithConfidence:"COMPRE COM SEGURANÇA",
+    buyWithConfidenceDesc:"Escolha um analista especializado para te acompanhar durante toda a compra.",
+    generalSupport:"Chat de Suporte Geral", generalSupportDesc:"Dúvidas rápidas? Fale com nossa equipe agora",
+    online:"● Online", available:"● Disponível", busy:"● Ocupado",
+    whatsapp:"📱 WhatsApp", chatInApp:"💬 Chat no App",
+    buyerGuide:"GUIA DO COMPRADOR", askAI:"🤖 Pergunte ao nosso especialista IA",
+    askAIDesc:"Tire qualquer dúvida sobre compra de carros",
+    askAIPlaceholder:"Ex: Como sei se o motor está bom?",
+    askAILoading:"Consultando especialista...", all:"Todos",
+    nearbyVehicles:"CARROS PRÓXIMOS", radius:"Raio:",
+    gettingLocation:"Obtendo sua localização...",
+    carsNearby:"carros em até", kmFromYou:"km de você",
+    noCarsRadius:"Nenhum carro nesse raio. Aumente o filtro de distância!",
+    talkToAnalyst:"Falar com Analista 🎯",
+    noApiKey:"⚠️ API key não configurada. Configure VITE_ANTHROPIC_KEY no Vercel.",
+    chatPlaceholder:"Pergunta para o analista...",
+    typing:"digitando...",
+    termsTitle:"TERMOS DE USO", myProfile:"MEU PERFIL",
+  },
+  en: {
+    explore:"Explore", matches:"Matches", guide:"Guide", map:"Map", profile:"Profile",
+    analyst:"Analyst", filters:"Filters", searchPlaceholder:"Search by model, brand, color...",
+    swipeRight:"LIKE ♥", swipeLeft:"PASS ✗", noMoreCars:"NO MORE CARS",
+    noMoreCarsDesc:"You've seen all available cars. Check back later!",
+    login:"Sign In", register:"Sign Up", email:"Email", password:"Password", name:"Name",
+    phone:"Phone", enterApp:"ENTER APP", demoAccounts:"Demo accounts:",
+    myListings:"My Listings", myMatches:"My Matches", publish:"Publish",
+    active:"Active", paused:"Paused", pause:"Pause", activate:"Activate", remove:"Remove",
+    publishCar:"Publish Car", back:"← Back", save:"Save", cancel:"Cancel",
+    logout:"Sign Out", editProfile:"Edit Profile", memberSince:"Member since",
+    buyer:"Buyer", seller:"Seller", admin:"Administrator",
+    chooseAnalyst:"YOUR ANALYSTS", buyWithConfidence:"BUY WITH CONFIDENCE",
+    buyWithConfidenceDesc:"Choose a specialized analyst to guide you through the entire purchase.",
+    generalSupport:"General Support Chat", generalSupportDesc:"Quick questions? Talk to our team now",
+    online:"● Online", available:"● Available", busy:"● Busy",
+    whatsapp:"📱 WhatsApp", chatInApp:"💬 Chat in App",
+    buyerGuide:"BUYER'S GUIDE", askAI:"🤖 Ask our AI specialist",
+    askAIDesc:"Ask anything about buying cars",
+    askAIPlaceholder:"E.g.: How do I know if the engine is good?",
+    askAILoading:"Consulting specialist...", all:"All",
+    nearbyVehicles:"NEARBY CARS", radius:"Radius:",
+    gettingLocation:"Getting your location...",
+    carsNearby:"cars within", kmFromYou:"km from you",
+    noCarsRadius:"No cars in this radius. Increase the distance filter!",
+    talkToAnalyst:"Talk to Analyst 🎯",
+    noApiKey:"⚠️ API key not configured. Set VITE_ANTHROPIC_KEY in Vercel.",
+    chatPlaceholder:"Ask the analyst...",
+    typing:"typing...",
+    termsTitle:"TERMS OF USE", myProfile:"MY PROFILE",
+  },
+  es: {
+    explore:"Explorar", matches:"Matches", guide:"Guía", map:"Mapa", profile:"Perfil",
+    analyst:"Analista", filters:"Filtros", searchPlaceholder:"Buscar por modelo, marca, color...",
+    swipeRight:"ME GUSTA ♥", swipeLeft:"PASAR ✗", noMoreCars:"SIN MÁS AUTOS",
+    noMoreCarsDesc:"Ya viste todos los autos disponibles. ¡Vuelve más tarde!",
+    login:"Iniciar sesión", register:"Registrarse", email:"Correo", password:"Contraseña", name:"Nombre",
+    phone:"Teléfono", enterApp:"ENTRAR A LA APP", demoAccounts:"Cuentas demo:",
+    myListings:"Mis Anuncios", myMatches:"Mis Matches", publish:"Publicar",
+    active:"Activo", paused:"Pausado", pause:"Pausar", activate:"Activar", remove:"Eliminar",
+    publishCar:"Publicar Auto", back:"← Volver", save:"Guardar", cancel:"Cancelar",
+    logout:"Cerrar Sesión", editProfile:"Editar Perfil", memberSince:"Miembro desde",
+    buyer:"Comprador", seller:"Vendedor", admin:"Administrador",
+    chooseAnalyst:"TUS ANALISTAS", buyWithConfidence:"COMPRA CON SEGURIDAD",
+    buyWithConfidenceDesc:"Elige un analista especializado para acompañarte en toda la compra.",
+    generalSupport:"Chat de Soporte General", generalSupportDesc:"¿Dudas rápidas? Habla con nuestro equipo ahora",
+    online:"● En línea", available:"● Disponible", busy:"● Ocupado",
+    whatsapp:"📱 WhatsApp", chatInApp:"💬 Chat en App",
+    buyerGuide:"GUÍA DEL COMPRADOR", askAI:"🤖 Pregunta a nuestro especialista IA",
+    askAIDesc:"Resuelve cualquier duda sobre la compra de autos",
+    askAIPlaceholder:"Ej: ¿Cómo sé si el motor está bien?",
+    askAILoading:"Consultando especialista...", all:"Todos",
+    nearbyVehicles:"AUTOS CERCANOS", radius:"Radio:",
+    gettingLocation:"Obteniendo tu ubicación...",
+    carsNearby:"autos a menos de", kmFromYou:"km de ti",
+    noCarsRadius:"Sin autos en este radio. ¡Aumenta el filtro de distancia!",
+    talkToAnalyst:"Hablar con Analista 🎯",
+    noApiKey:"⚠️ API key no configurada. Configura VITE_ANTHROPIC_KEY en Vercel.",
+    chatPlaceholder:"Pregunta al analista...",
+    typing:"escribiendo...",
+    termsTitle:"TÉRMINOS DE USO", myProfile:"MI PERFIL",
+  }
+};
+
+// Language switcher component
+function LangSwitcher() {
+  const { lang, setLang } = useContext(LangContext);
+  const flags = { pt:"🇧🇷", en:"🇺🇸", es:"🇪🇸" };
+  return (
+    <div style={{ display:"flex", gap:4 }}>
+      {["pt","en","es"].map(l=>(
+        <div key={l} onClick={()=>setLang(l)} style={{ padding:"4px 8px", borderRadius:6, cursor:"pointer", fontSize:"0.8rem", fontWeight:700, background: lang===l?"rgba(255,107,26,0.15)":"transparent", border:`1px solid ${lang===l?"rgba(255,107,26,0.4)":"rgba(255,255,255,0.08)"}`, color: lang===l?"#FF6B1A":"#666", transition:"all 0.15s" }}>
+          {flags[l]}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const SEED_CARS = [
   { id:"c1", sellerId:"demo_seller", sellerName:"Ricardo Moura", model:"Honda Civic", year:2021, km:32000, price:118000, fuel:"Flex", color:"Preto", city:"São Paulo", desc:"Único dono, revisado em dia, IPVA 2025 pago. Carro em excelente estado.", emoji:"🚗", tag:"Seminovo", active:true, createdAt:"2025-01-01" },
@@ -184,7 +305,9 @@ function AuthScreen({ users, setUsers, setUser, onSuccess, showToast, setScreen 
 }
 
 // ─── BUYER HOME (SWIPE) ────────────────────────────────────────────────────────
-function BuyerHome({ cars, user, matches, setMatches, chats, setChats, showToast, setScreen }) {
+function BuyerHome({ cars, user, matches, setMatches, chats, setChats, showToast, setScreen, t }) {
+  const { lang } = useContext(LangContext);
+  if (!t) t = k => k;
   const [swipedIds, setSwipedIds] = useState([]);
   const [feedback, setFeedback] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -277,11 +400,12 @@ function BuyerHome({ cars, user, matches, setMatches, chats, setChats, showToast
       {/* TOP */}
       <div style={S.topBar}>
         <div style={S.logoText}>AUTOLINK</div>
-        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-          <div onClick={()=>setScreen("analysts")} style={{ cursor:"pointer", background:"rgba(255,107,26,0.1)", border:"1px solid rgba(255,107,26,0.3)", borderRadius:8, padding:"7px 12px", display:"flex", alignItems:"center", gap:5, fontSize:"0.8rem", fontWeight:700, color:"#FF6B1A" }}>
-            🎯 Analista
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <LangSwitcher />
+          <div onClick={()=>setScreen("analysts")} style={{ cursor:"pointer", background:"rgba(255,107,26,0.1)", border:"1px solid rgba(255,107,26,0.3)", borderRadius:8, padding:"6px 10px", display:"flex", alignItems:"center", gap:4, fontSize:"0.78rem", fontWeight:700, color:"#FF6B1A" }}>
+            🎯 {t("analyst")}
           </div>
-          <div onClick={()=>{ setPendingFilter(filter); setShowFilters(true); }} style={{ position:"relative", cursor:"pointer", background:"#1A1A1A", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"7px 14px", display:"flex", alignItems:"center", gap:6, fontSize:"0.82rem", fontWeight:700 }}>
+          <div onClick={()=>{ setPendingFilter(filter); setShowFilters(true); }} style={{ position:"relative", cursor:"pointer", background:"#1A1A1A", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"6px 10px", display:"flex", alignItems:"center", gap:5, fontSize:"0.82rem", fontWeight:700 }}>
             <span>⚙️</span>
             {activeFilterCount > 0 && <div style={{ background:"linear-gradient(135deg,#FF2D2D,#FF6B1A)", color:"white", borderRadius:100, width:18, height:18, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"0.65rem", fontWeight:900 }}>{activeFilterCount}</div>}
           </div>
@@ -442,11 +566,11 @@ function BuyerHome({ cars, user, matches, setMatches, chats, setChats, showToast
 
       {/* NAV */}
       <div style={S.navBar}>
-        <IconBtn icon="🔥" label="Explorar" active={true} />
-        <IconBtn icon="❤️" label="Matches" badge={newMatchCount} onClick={()=>setScreen("matches")} />
-        <IconBtn icon="📚" label="Guia" onClick={()=>setScreen("education")} />
-        <IconBtn icon="🗺️" label="Mapa" onClick={()=>setScreen("map")} />
-        <IconBtn icon="👤" label="Perfil" onClick={()=>setScreen("profile")} />
+        <IconBtn icon="🔥" label={t("explore")} active={true} />
+        <IconBtn icon="❤️" label={t("matches")} badge={newMatchCount} onClick={()=>setScreen("matches")} />
+        <IconBtn icon="📚" label={t("guide")} onClick={()=>setScreen("education")} />
+        <IconBtn icon="🗺️" label={t("map")} onClick={()=>setScreen("map")} />
+        <IconBtn icon="👤" label={t("profile")} onClick={()=>setScreen("profile")} />
       </div>
     </div>
   );
@@ -1010,16 +1134,25 @@ function AnalystChatBox({ analyst, onClose }) {
 
   const sendMsg = async (text) => {
     if (!text.trim()) return;
+    const apiKey = getApiKey();
     const userMsg = { from:"user", text, time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) };
     setMsgs(p=>[...p, userMsg]);
     setInput("");
     setTyping(true);
 
+    if (!apiKey) {
+      setTimeout(()=>{
+        setMsgs(p=>[...p, { from:"analyst", text:"⚠️ API key não configurada. Peça ao administrador para adicionar VITE_ANTHROPIC_KEY nas variáveis de ambiente do Vercel.", time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) }]);
+        setTyping(false);
+      }, 600);
+      return;
+    }
+
     // AI-powered analyst response via Claude API
     try {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method:"POST",
-        headers:{ "Content-Type":"application/json" },
+        headers:{ "Content-Type":"application/json", "x-api-key": apiKey, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
         body: JSON.stringify({
           model:"claude-sonnet-4-20250514",
           max_tokens:1000,
@@ -1205,12 +1338,17 @@ function EducationScreen({ setScreen }) {
 
   const askAI = async () => {
     if (!aiQuestion.trim()) return;
+    const apiKey = getApiKey();
     setAiLoading(true);
     setAiAnswer("");
+    if (!apiKey) {
+      setTimeout(()=>{ setAiAnswer("⚠️ API key não configurada. Configure VITE_ANTHROPIC_KEY no Vercel para ativar esta função."); setAiLoading(false); }, 400);
+      return;
+    }
     try {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method:"POST",
-        headers:{ "Content-Type":"application/json" },
+        headers:{ "Content-Type":"application/json", "x-api-key": apiKey, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
         body: JSON.stringify({
           model:"claude-sonnet-4-20250514",
           max_tokens:1000,
@@ -1479,6 +1617,8 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [activeChatMatchId, setActiveChatMatchId] = useState(null);
+  const [lang, setLang] = useState("pt");
+  const t = k => TRANSLATIONS[lang]?.[k] || TRANSLATIONS.pt[k] || k;
 
   useEffect(() => {
     (async () => {
@@ -1520,9 +1660,10 @@ export default function App() {
     </div>
   );
 
-  const commonProps = { user, setUser:handleSetUser, cars, setCars, users, setUsers, matches, setMatches, chats, setChats, showToast, setScreen:handleScreen, logout };
+  const commonProps = { user, setUser:handleSetUser, cars, setCars, users, setUsers, matches, setMatches, chats, setChats, showToast, setScreen:handleScreen, logout, t, lang };
 
   return (
+    <LangContext.Provider value={{ lang, setLang, t }}>
     <div style={S.app}>
       <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet" />
       {toast && <Toast msg={toast.msg} type={toast.type} />}
@@ -1535,11 +1676,12 @@ export default function App() {
       {screen==="matches" && <MatchesScreen {...commonProps} onOpenChat={m=>setActiveChatMatchId(m.id)} />}
       {screen==="chat" && <ChatScreen {...commonProps} matchId={activeChatMatchId} />}
       {screen==="upload" && <UploadScreen {...commonProps} />}
-      {screen==="terms" && <TermsScreen setScreen={handleScreen} />}
+      {screen==="terms" && <TermsScreen setScreen={handleScreen} t={t} />}
       {screen==="profile" && <ProfileScreen {...commonProps} />}
-      {screen==="analysts" && <AnalystsScreen setScreen={handleScreen} />}
-      {screen==="education" && <EducationScreen setScreen={handleScreen} />}
-      {screen==="map" && <MapScreen cars={cars} setScreen={handleScreen} />}
+      {screen==="analysts" && <AnalystsScreen setScreen={handleScreen} t={t} />}
+      {screen==="education" && <EducationScreen setScreen={handleScreen} t={t} />}
+      {screen==="map" && <MapScreen cars={cars} setScreen={handleScreen} t={t} />}
     </div>
+    </LangContext.Provider>
   );
 }
