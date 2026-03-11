@@ -671,7 +671,7 @@ function SellerHome({ user, cars, setCars, matches, showToast, setScreen }) {
       <div style={S.navBar}>
         <IconBtn icon="🚗" label="Anúncios" active={true} />
         <IconBtn icon="❤️" label="Matches" badge={myMatches.length} onClick={()=>setNavTab("matches")} />
-        <IconBtn icon="➕" label=t("publish") onClick={()=>setScreen("upload")} />
+        <IconBtn icon="➕" label={t("publish")} onClick={()=>setScreen("upload")} />
         <IconBtn icon="👤" label="Perfil" onClick={()=>setScreen("profile")} />
       </div>
     </div>
